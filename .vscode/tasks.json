@@ -1,0 +1,16 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"type": "shell",
+			"label": "Run Valgrind",
+			"command": "valgrind --tool=memcheck --leak-check=full --show-leak-kinds=all python3 ${workspaceFolder}/home/mayphias/MEGA/MEGAsync/voice-gpt/jade.py",
+			"problemMatcher": [],
+			"detail": "CMake template test task",
+			"group": {
+				"kind": "build",
+				"isDefault": true
+			}
+		}
+	]
+}

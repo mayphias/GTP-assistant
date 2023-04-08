@@ -5,9 +5,14 @@ from contextlib import  contextmanager
 from ctypes import *
 import pyaudio
 import time
+import gc; gc.enable()
+#debbuging time!
+import ctypes
+ctypes.CDLL('libc.so.6').__cxa_throw(0, 0, 0)
+####################################
 
 #setting open AI API key
-openai.api_key = "my-api-key"
+openai.api_key = "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"
 
 
 #ALSA error handler
@@ -39,7 +44,7 @@ pa = pyaudio.PyAudio()
 FORMAT = pyaudio.paInt16
 CHANNELS = 2
 RATE = 44100
-CHUNK = 1024
+CHUNK = 256
 stream = pa.open(format=FORMAT,
                  channels=CHANNELS,
                  rate=RATE,
