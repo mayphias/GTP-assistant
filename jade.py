@@ -1,45 +1,25 @@
 import openai
-import pyttsx3
 import speech_recognition as sr
-from contextlib import  contextmanager
-from ctypes import *
 import pyaudio
 import time
-import gc; gc.enable()
-#debbuging time!
-import ctypes
-ctypes.CDLL('libc.so.6').__cxa_throw(0, 0, 0)
-####################################
 
-#setting open AI API key
-openai.api_key = "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"
+# setting open AI API key
+openai.api_key = "api-key"
 
 
-#ALSA error handler
-ERROR_HANDLER_FUNC = CFUNCTYPE(None, c_char_p, c_int, c_char_p, c_int, c_char_p)
+# texto em fala (fala inicial)
 
-def py_error_handler(filename, line, function, err, fmt):
-    pass
-
-c_error_handler = ERROR_HANDLER_FUNC(py_error_handler)
-
-@contextmanager
-def noalsaerr():
-    asound = cdll.LoadLibrary('libasound.so')
-    asound.snd_lib_error_set_handler(c_error_handler)
-    yield
-    asound.snd_lib_error_set_handler(None)
-
-#texto em fala (fala inicial)
+import pyttsx3
 def text_to_speech(text):
     engine = pyttsx3.init()
     engine.say(text)
     engine.runAndWait()
 
-#inicialize the text-to-speech engine
+
+# inicialize the text-to-speech engine
 engine = pyttsx3.init()
 
-#setting up the output device to default "0"
+# setting up the output device to default "0"
 pa = pyaudio.PyAudio()
 FORMAT = pyaudio.paInt16
 CHANNELS = 2
@@ -56,14 +36,14 @@ stream = pa.open(format=FORMAT,
 voice_id = "kannada"
 engine.setProperty("voice", voice_id)
 
-#search for the microphone sony to utilize
+# search for the microphone sony to utilize
 def get_device_index(recognizer):
     for index, name in enumerate(sr.Microphone.list_microphone_names()):
-        #My specific mic
+        # My specific mic
         if "Sony" in name:
             print("Mic found: ", name)
             return index
-        #other mics
+        # other mics
         if "mic" in name.lower():
             try:
                 with sr.Microphone(device_index=index) as source:
@@ -72,10 +52,10 @@ def get_device_index(recognizer):
                     return index
             except sr.UnknownValueError:
                 pass
-    #if shown, error in picking up mic
-    print("error no mic selected, here the list of devices: ", sr.Microphone.list_microphone_names())
+    # if shown, error in picking up mic
+    print("error no mic selected, here the list of devices: ",
+          sr.Microphone.list_microphone_names())
     return None
-
 
 def transcribe_audio_to_text(audio_input):
     recognizer = sr.Recognizer()
@@ -94,9 +74,47 @@ def transcribe_audio_to_text(audio_input):
     except sr.RequestError as e:
         print(f"Could not request results from Google Speech Recognition service; {e}")
         return None
-    except:
-        print("Skipping unknown error.")
+    except Exception as e:
+        print(f"Unknown error: {e}")
         return None
+
+def ask_question():
+    recognizer = sr.Recognizer()
+    gdi = get_device_index(recognizer)
+    if gdi is None:
+        print("No microphone found.")
+        return None
+    while True:
+        # wait for user to say "jade"
+        print("Say 'jade' to start recording your question...")
+        with sr.Microphone(device_index=gdi) as source:
+            recognizer.adjust_for_ambient_noise(source, duration=0.5)
+            time.sleep(0.5)
+            audio = recognizer.listen(source, phrase_time_limit=5)
+        try:
+            command = recognizer.recognize_google(audio)
+            if "jade" in command.lower():
+                print("Recording...")
+                with sr.Microphone(device_index=gdi) as source:
+                    recognizer.adjust_for_ambient_noise(source, duration=0.5)
+                    time.sleep(0.5)
+                    audio = recognizer.listen(source, phrase_time_limit=5)
+                text = transcribe_audio_to_text(audio)
+                if text:
+                    print(f"You asked: {text}")
+                    return text
+                else:
+                    print("Sorry, I couldn't understand your question. Please try again.")
+            else:
+                print("Sorry, I didn't hear you say 'jade'. Please try again.")
+        except sr.UnknownValueError:
+            print("Sorry, I couldn't understand your question. Please try again.")
+        except sr.RequestError as e:
+            print(f"Could not request results from Google Speech Recognition service; {e}")
+        except Exception as e:
+            print(f"Unknown error: {e}")
+            break
+
 
 def generate_response(prompt, additional_context=None):
     if additional_context:
@@ -111,9 +129,11 @@ def generate_response(prompt, additional_context=None):
     )
     return response["choices"][0]["text"]
 
+
 def speak_text(text):
     engine.say(text)
     engine.runAndWait()
+
 
 def main():
     # Say welcome message
@@ -123,38 +143,42 @@ def main():
     with sr.Microphone() as source:
         gdi = get_device_index(recognizer)
     while True:
-        #wait for user to say "jade"
-        print("Say 'jade' to start recording your question...")
+        # wait for user to say "jade"
         with sr.Microphone(device_index=gdi) as source:
-            audio = recognizer.listen(source)
+            try:
+                audio = ask_question()       ##<----------achei minha dor de cabeça
+            except sr.WaitTimeoutError:
+                print("Timed out waiting for input...")
+                continue
             try:
                 transcription = recognizer.recognize_google(audio)
                 if transcription.lower() == "jade":
-                    #record audio
+                    # record audio
                     audio_input = "input.wav"
                     print("Say your question...")
                     with sr.Microphone(device_index=gdi) as source:
-                        with noalsaerr():
-                            source.pause_threshold = 1
-                            audio = recognizer.listen(source, phase_time_limit=None, timeout=None)
+                        source.pause_threshold = 1
+                        audio = recognizer.listen(
+                            source, phase_time_limit=None, timeout=None)
                         with open(audio_input, "wb") as f:
                             f.write(audio.get_wav_data())
-                    
-                    #transcribe the audio
+
+                    # transcribe the audio
                     text = transcribe_audio_to_text(audio_input)
                     if text:
                         print(f"You said: {text}")
 
-                        #generate response using GTP-3 with additional context
+                        # generate response using GTP-3 with additional context
                         additional_context = "You are my assistant and my professor named jade, act like it."
                         response = generate_response(text, additional_context)
                         print(f"GPT-3 says: {response}")
 
-                        #read response using text-to-speech
+                        # read response using text-to-speech
                         speak_text(response)
+                        del response
             except Exception as e:
                 print("An error occurred: {}".format(e))
 
+
 if __name__ == "__main__":
     main()
-
